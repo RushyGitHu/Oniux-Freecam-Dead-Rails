@@ -1,0 +1,515 @@
+local ESP = {
+    Enabled = true,
+    ItemESP = true,
+    EnemyESP = true,
+    ItemColor = Color3.fromRGB(0, 255, 0), -- Green for items
+    EnemyColor = Color3.fromRGB(255, 0, 0), -- Red for enemies
+    PassiveColor = Color3.fromRGB(0, 255, 255), -- Cyan for passive creatures
+    TextSize = 18, -- Increased text size for mobile
+    MaxDistance = 1000, -- Reduced to 1000 studs for better performance
+    UpdateRate = 0.1, -- Update ESP every 0.1 seconds instead of every frame
+    ESPObjects = {}, -- Store ESP objects for cleanup
+    
+    -- Define valid items and enemies
+    ValidItems = {
+        -- Weapons & Tools
+        ["Dynamite"] = true,
+        
+        -- Resources & Materials
+        ["Coal"] = true,
+        ["Fire Torch"] = true,
+        ["Barbed Wire"] = true,
+        ["Corpse"] = true, -- Fuel
+        ["Camera"] = true,
+        ["Ammo"] = true,
+        
+        -- Healing Items
+        ["Bandage"] = true,
+        ["Dr Rico's Cure"] = true, -- Snake Oil
+        
+        -- Valuable Items - Gold
+        ["Gold Ingot"] = true,
+        ["Gold Statue"] = true,
+        ["Gold Painting"] = true,
+        ["Gold Cup"] = true,
+        ["Gold Plate"] = true,
+        ["Gold Watch"] = true,
+        
+        -- Valuable Items - Silver
+        ["Silver Ingot"] = true,
+        ["Silver Statue"] = true,
+        ["Silver Painting"] = true,
+        ["Silver Cup"] = true,
+        ["Silver Plate"] = true,
+        ["Silver Watch"] = true,
+        
+        -- Other Valuable Items
+        ["Stone Statue"] = true,
+        ["Wood Painting"] = true,
+        
+        -- Special Items
+        ["Unicorn"] = true,
+        
+        -- Corpses
+        ["Bandit Corpse"] = true,
+        ["Werewolf Corpse"] = true,
+        ["Vampire Corpse"] = true,
+        
+        -- Common Items
+        ["Barrel"] = true,
+        ["Box"] = true,
+        ["Chair"] = true,
+        ["Pot"] = true,
+        ["Tea"] = true,
+        ["Rope"] = true,
+        ["Wheel"] = true
+    },
+    
+    ValidEnemies = {
+        -- Zombies
+        ["Zombie"] = true,
+        ["Runner Zombie"] = true, -- Fast Zombie
+        ["Banker Zombie"] = true, -- Zombie Banker
+        ["Zombie Soldier"] = true, -- Armed Zombie
+        ["Lab Zombie"] = true, -- Scientist Zombie
+        
+        -- Outlaws
+        ["Outlaw"] = true,
+        ["Horseback Outlaw"] = true,
+        
+        -- Monsters
+        ["Vampire"] = true,
+        ["Wolf"] = true,
+        ["Werewolf"] = true
+    },
+    
+    ValidPassiveCreatures = {
+        ["Horse"] = true,
+        ["Unicorn"] = true
+    }
+}
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+-- Variables
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local LastUpdate = 0
+
+-- Create Mobile GUI
+local function CreateMobileGui()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "OniuxMobileGUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = CoreGui
+    
+    -- Main control frame
+    local ControlFrame = Instance.new("Frame")
+    ControlFrame.Name = "ControlFrame"
+    ControlFrame.Size = UDim2.new(0, 150, 0, 130)
+    ControlFrame.Position = UDim2.new(0, 10, 0.5, -65)
+    ControlFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    ControlFrame.BackgroundTransparency = 0.3
+    ControlFrame.BorderSizePixel = 0
+    ControlFrame.Parent = ScreenGui
+    
+    -- Round corners
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.Parent = ControlFrame
+    
+    -- Title
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Position = UDim2.new(0, 0, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = "Oniux ESP"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 16
+    Title.Font = Enum.Font.GothamBold
+    Title.Parent = ControlFrame
+    
+    -- Toggle All Button
+    local ToggleAllBtn = Instance.new("TextButton")
+    ToggleAllBtn.Name = "ToggleAllBtn"
+    ToggleAllBtn.Size = UDim2.new(0.9, 0, 0, 30)
+    ToggleAllBtn.Position = UDim2.new(0.05, 0, 0.1, 0)
+    ToggleAllBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 40)
+    ToggleAllBtn.Text = "ESP: ON"
+    ToggleAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleAllBtn.TextSize = 16
+    ToggleAllBtn.Font = Enum.Font.GothamBold
+    ToggleAllBtn.Parent = ControlFrame
+    
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 5)
+    BtnCorner.Parent = ToggleAllBtn
+    
+    -- Make draggable
+    local isDragging = false
+    local dragStart = nil
+    local startPos = nil
+    
+    ControlFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = true
+            dragStart = input.Position
+            startPos = ControlFrame.Position
+        end
+    end)
+    
+    ControlFrame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = false
+        end
+    end)
+    
+    ControlFrame.InputChanged:Connect(function(input)
+        if isDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            local delta = input.Position - dragStart
+            ControlFrame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    -- Toggle button handler
+    ToggleAllBtn.MouseButton1Click:Connect(function()
+        ESP.Enabled = not ESP.Enabled
+        ToggleAllBtn.Text = "ESP: " .. (ESP.Enabled and "ON" or "OFF")
+        ToggleAllBtn.BackgroundColor3 = ESP.Enabled and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(40, 40, 40)
+        
+        -- Clean up highlights if disabled
+        if not ESP.Enabled then
+            for _, v in pairs(ESP.ESPObjects) do
+                if v.highlight then
+                    v.highlight:Destroy()
+                end
+            end
+            ESP.ESPObjects = {}
+        end
+    end)
+    
+    return ScreenGui
+end
+
+-- Function to create ESP text
+local function CreateESPText()
+    local Text = Drawing.new("Text")
+    Text.Visible = false
+    Text.Center = true
+    Text.Outline = true
+    Text.Font = 2
+    Text.Size = ESP.TextSize
+    return Text
+end
+
+-- Function to check if an object is valid for ESP
+local function IsValidObject(obj)
+    return obj and obj.Parent and obj:IsDescendantOf(workspace)
+end
+
+-- Function to cleanup ESP objects
+local function CleanupESP(obj)
+    if ESP.ESPObjects[obj] then
+        local espData = ESP.ESPObjects[obj]
+        if espData.text then
+            espData.text:Remove()
+        end
+        if espData.billboard and espData.billboard.Parent then
+            espData.billboard:Destroy()
+        end
+        ESP.ESPObjects[obj] = nil
+    end
+end
+
+-- Function to normalize item name
+local function NormalizeItemName(name)
+    name = name:gsub("_", " ")
+           :gsub("%d+", "")
+           :gsub("^%s*(.-)%s*$", "%1")
+           :gsub(" %(Snake Oil%)", "")
+    return name
+end
+
+-- Function to check if an object is an item
+local function IsItem(obj)
+    -- Check if object is valid
+    if not IsValidObject(obj) then return false end
+    
+    -- Check for common item properties in Dead Rails
+    if obj:IsA("Model") or obj:IsA("BasePart") then
+        -- Skip if item is equipped
+        if obj:FindFirstChild("Equipped") or 
+           (obj.Parent and obj.Parent:FindFirstChild("Equipped")) then
+            return false
+        end
+        
+        -- Check if the item name is in our valid items list
+        local normalizedName = NormalizeItemName(obj.Name)
+        if ESP.ValidItems[normalizedName] then
+            return true
+        end
+        
+        -- Check children for valid items (some items might be nested)
+        for _, child in pairs(obj:GetChildren()) do
+            if child:IsA("StringValue") and child.Name == "Type" then
+                local itemType = NormalizeItemName(child.Value)
+                if ESP.ValidItems[itemType] then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- Function to check if an object is an enemy and get its name
+local function IsEnemy(obj)
+    if not IsValidObject(obj) then return false, "" end
+    
+    if obj:IsA("Model") then
+        local humanoid = obj:FindFirstChild("Humanoid")
+        if humanoid and humanoid.Health > 0 then
+            -- Check if it's not a player
+            for _, player in pairs(Players:GetPlayers()) do
+                if player.Character == obj then
+                    return false, ""
+                end
+            end
+            
+            -- Get enemy name
+            local enemyName = obj.Name
+            -- Check for custom name label
+            local nameLabel = obj:FindFirstChild("NameLabel") or obj:FindFirstChild("Name") or obj:FindFirstChild("DisplayName")
+            if nameLabel and nameLabel:IsA("StringValue") then
+                enemyName = nameLabel.Value
+            end
+            
+            -- Check for NPC type
+            local npcType = obj:FindFirstChild("NPCType") or obj:FindFirstChild("Type")
+            if npcType and npcType:IsA("StringValue") then
+                enemyName = npcType.Value
+            end
+            
+            -- Normalize and check if it's a valid enemy
+            enemyName = NormalizeItemName(enemyName)
+            if ESP.ValidEnemies[enemyName] then
+                return true, enemyName
+            end
+        end
+    end
+    return false, ""
+end
+
+-- Function to check if object is a valid item or enemy
+local function IsValidTarget(obj)
+    if not IsValidObject(obj) then return false, nil, 0 end -- 0 = invalid, 1 = item, 2 = enemy, 3 = passive
+    
+    -- Check if it's an item
+    local normalizedName = NormalizeItemName(obj.Name)
+    if ESP.ValidItems[normalizedName] and not (obj:FindFirstChild("Equipped") or (obj.Parent and obj.Parent:FindFirstChild("Equipped"))) then
+        return true, normalizedName, 1
+    end
+    
+    -- Check if it's an enemy
+    if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("Humanoid").Health > 0 then
+        -- Check if it's not a player
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Character == obj then return false, nil, 0 end
+        end
+        
+        -- Get creature name
+        local creatureName = obj.Name
+        local npcType = obj:FindFirstChild("NPCType") or obj:FindFirstChild("Type")
+        if npcType and npcType:IsA("StringValue") then
+            creatureName = npcType.Value
+        end
+        creatureName = NormalizeItemName(creatureName)
+        
+        -- Check if it's an enemy
+        if ESP.ValidEnemies[creatureName] then
+            return true, creatureName, 2
+        end
+        
+        -- Check if it's a passive creature
+        if ESP.ValidPassiveCreatures[creatureName] then
+            return true, creatureName, 3
+        end
+    end
+    
+    return false, nil, 0
+end
+
+-- Function to create label
+local function CreateLabel(parent, name)
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESPLabel"
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 2, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = parent
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "NameLabel"
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextSize = ESP.TextSize
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Parent = billboard
+
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Name = "DistanceLabel"
+    distanceLabel.Size = UDim2.new(1, 0, 0, 20)
+    distanceLabel.Position = UDim2.new(0, 0, 0, 20)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Text = ""
+    distanceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.TextSize = ESP.TextSize - 2
+    distanceLabel.Font = Enum.Font.GothamBold
+    distanceLabel.Parent = billboard
+
+    return billboard, nameLabel, distanceLabel
+end
+
+-- Optimized ESP Update Function
+local function UpdateESP()
+    local currentTime = tick()
+    if currentTime - LastUpdate < ESP.UpdateRate then return end
+    LastUpdate = currentTime
+    
+    local cameraPos = Camera.CFrame.Position
+    
+    -- Clean up invalid objects and those too far away
+    for obj, data in pairs(ESP.ESPObjects) do
+        if not IsValidObject(obj) then
+            if data.highlight then
+                data.highlight:Destroy()
+            end
+            if data.billboard then
+                data.billboard:Destroy()
+            end
+            ESP.ESPObjects[obj] = nil
+        else
+            -- Check distance and update visibility
+            local objectPos = obj:IsA("Model") and 
+                (obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart or obj:FindFirstChild("Handle")) or 
+                (obj:IsA("BasePart") and obj)
+            
+            if objectPos then
+                local distance = (cameraPos - objectPos.Position).Magnitude
+                local isVisible = distance <= ESP.MaxDistance
+                
+                -- Update visibility
+                if data.highlight then
+                    data.highlight.Enabled = isVisible
+                end
+                if data.billboard then
+                    data.billboard.Enabled = isVisible
+                end
+                
+                -- Update distance label if visible
+                if isVisible and data.distanceLabel then
+                    data.distanceLabel.Text = string.format("[%d m]", math.floor(distance))
+                end
+            end
+        end
+    end
+    
+    -- Only check for new objects within range
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if not ESP.ESPObjects[obj] then
+            local objectPos = obj:IsA("Model") and 
+                (obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart or obj:FindFirstChild("Handle")) or 
+                (obj:IsA("BasePart") and obj)
+            
+            if objectPos then
+                local distance = (cameraPos - objectPos.Position).Magnitude
+                
+                -- Only create ESP for objects within range
+                if distance <= ESP.MaxDistance then
+                    local isValid, name, objType = IsValidTarget(obj)
+                    
+                    if isValid then
+                        -- Create highlight
+                        local highlight = Instance.new("Highlight")
+                        
+                        -- Set color based on object type
+                        if objType == 1 then -- Item
+                            highlight.FillColor = ESP.ItemColor
+                            highlight.OutlineColor = ESP.ItemColor
+                        elseif objType == 2 then -- Enemy
+                            highlight.FillColor = ESP.EnemyColor
+                            highlight.OutlineColor = ESP.EnemyColor
+                        else -- Passive creature
+                            highlight.FillColor = ESP.PassiveColor
+                            highlight.OutlineColor = ESP.PassiveColor
+                        end
+                        
+                        highlight.FillTransparency = 0.5
+                        highlight.OutlineTransparency = 0
+                        highlight.Parent = obj
+                        
+                        -- Create labels
+                        local billboard, nameLabel, distanceLabel = CreateLabel(obj, name)
+                        distanceLabel.Text = string.format("[%d m]", math.floor(distance))
+                        
+                        ESP.ESPObjects[obj] = {
+                            highlight = highlight,
+                            billboard = billboard,
+                            nameLabel = nameLabel,
+                            distanceLabel = distanceLabel
+                        }
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Initialize ESP
+local function InitESP()
+    local mobileGui = CreateMobileGui()
+    
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Oniux ESP",
+        Text = "Optimized ESP Loaded!\nRange: 30m",
+        Duration = 3
+    })
+    
+    RunService.Heartbeat:Connect(function()
+        if ESP.Enabled then
+            UpdateESP()
+        end
+    end)
+end
+
+-- Cleanup on script stop
+game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function()
+    for _, data in pairs(ESP.ESPObjects) do
+        if data.highlight then
+            data.highlight:Destroy()
+        end
+        if data.billboard then
+            data.billboard:Destroy()
+        end
+    end
+    ESP.ESPObjects = {}
+end)
+
+-- Start ESP
+InitESP() 
