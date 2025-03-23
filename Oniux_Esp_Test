@@ -6,42 +6,27 @@ local ESP = {
     EnemyColor = Color3.fromRGB(255, 0, 0), -- Red for enemies
     PassiveColor = Color3.fromRGB(0, 255, 255), -- Cyan for passive creatures
     TextSize = 18, -- Increased text size for mobile
-    MaxDistance = 1000, -- Reduced to 1000 studs for better performance
+    MaxDistance = 30, -- 30 meters for performance
     UpdateRate = 0.1, -- Update ESP every 0.1 seconds instead of every frame
     ESPObjects = {}, -- Store ESP objects for cleanup
     
     -- Define valid items and enemies
     ValidItems = {
-        -- Weapons, Tools & Guns
-        ["Dynamite"] = true,
-        ["Axe"] = true,
-        ["Hammer"] = true,
-        ["Pickaxe"] = true,
-        ["Shovel"] = true,
+        -- Weapons
         ["Revolver"] = true,
-        ["Navy Revolver"] = true,
-        ["Masuser C96"] = true,
-        ["Masuser"] = true,
+        ["Double Barrel Shotgun"] = true,
         ["Rifle"] = true,
-        ["Shotgun"] = true,
-        ["Sawed-Off Shotgun"] = true,
-        ["Maxim Machine Gun"] = true,
-        ["Vampire Knife"] = true,
-        
-        -- Resources & Materials
-        ["Coal"] = true,
-        ["Fire Torch"] = true,
-        ["Barbed Wire"] = true,
-        ["Corpse"] = true, -- Fuel
-        ["Camera"] = true,
-        ["Ammo"] = true,
+        ["Repeater"] = true,
+        ["Crossbow"] = true,
+        ["Dynamite"] = true,
+        ["Molotov"] = true,
         
         -- Healing Items
         ["Bandage"] = true,
         ["Dr Rico's Cure"] = true, -- Snake Oil
-        ["Snake Oil"] = true,
+        ["Medkit"] = true,
         
-        -- Valuable Items - Gold
+        -- Gold Items
         ["Gold Ingot"] = true,
         ["Gold Statue"] = true,
         ["Gold Painting"] = true,
@@ -49,7 +34,7 @@ local ESP = {
         ["Gold Plate"] = true,
         ["Gold Watch"] = true,
         
-        -- Valuable Items - Silver
+        -- Silver Items
         ["Silver Ingot"] = true,
         ["Silver Statue"] = true,
         ["Silver Painting"] = true,
@@ -57,32 +42,58 @@ local ESP = {
         ["Silver Plate"] = true,
         ["Silver Watch"] = true,
         
-        -- Other Valuable Items
+        -- Other Valuables
         ["Stone Statue"] = true,
         ["Wood Painting"] = true,
+        ["Camera"] = true,
+        ["Jewelry"] = true,
+        
+        -- Resources & Materials
+        ["Coal"] = true,
+        ["Fire Torch"] = true,
+        ["Barbed Wire"] = true,
+        ["Corpse"] = true, -- Fuel
+        ["Ammo"] = true,
+        ["Rope"] = true,
+        ["Wood"] = true,
+        ["Metal Scrap"] = true,
+        ["Cloth"] = true,
+        
+        -- Common Items
+        ["Barrel"] = true,
+        ["Box"] = true,
+        ["Chair"] = true,
+        ["Pot"] = true,
+        ["Tea"] = true,
+        ["Wheel"] = true,
+        ["Crate"] = true,
+        ["Table"] = true,
+        ["Lantern"] = true,
         
         -- Special Items
-        ["Unicorn"] = true,
+        ["Key"] = true,
+        ["Map"] = true,
+        ["Compass"] = true,
+        ["Tool"] = true,
         
         -- Corpses
         ["Bandit Corpse"] = true,
         ["Werewolf Corpse"] = true,
         ["Vampire Corpse"] = true,
+        ["Regular Corpse"] = true,
         
-        -- Common Items
-        ["Box"] = true,
-        ["Chair"] = true,
-        ["Pot"] = true,
-        ["Tea"] = true,
-        ["Rope"] = true,
-        ["Wheel"] = true
+        -- Containers
+        ["Chest"] = true,
+        ["Safe"] = true,
+        ["Cabinet"] = true,
+        ["Drawer"] = true
     },
     
     ValidEnemies = {
         -- Zombies
         ["Zombie"] = true,
         ["Runner Zombie"] = true, -- Fast Zombie
-        ["Banker Zombie"] = true, -- Zombie Banker
+        ["Banker Zombie"] = true,
         ["Zombie Soldier"] = true, -- Armed Zombie
         ["Lab Zombie"] = true, -- Scientist Zombie
         
@@ -90,7 +101,7 @@ local ESP = {
         ["Outlaw"] = true,
         ["Horseback Outlaw"] = true,
         
-        -- Monsters
+        -- Supernatural
         ["Vampire"] = true,
         ["Wolf"] = true,
         ["Werewolf"] = true
