@@ -1,474 +1,336 @@
--- Services
+
+print("Welcome to Oniux! Game: Dead Rails")
+print("Created By Mytril!")
+
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
+local player = Players.LocalPlayer
+local runService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local camera = workspace.CurrentCamera
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
--- Constants
-local ESP_DISTANCE = 30 -- Reduced distance for better performance
-local UPDATE_INTERVAL = 0.1
-local HIGHLIGHT_TRANSPARENCY = 0.5
+-- Notification
+StarterGui:SetCore("SendNotification", {
+    Title = "Oniux By Mytril!",
+    Text = "Code by Mytril!",
+    Duration = 3
+})
 
--- Valid Items List
-local ValidItems = {
-    -- Weapons
-    ["Dynamite"] = true,
-    
-    -- Resources & Materials
-    ["Coal"] = true,
-    ["Fire Torch"] = true,
-    ["Barbed Wire"] = true,
-    ["Corpse"] = true, -- Fuel
-    ["Camera"] = true,
-    ["Ammo"] = true,
-    
-    -- Healing Items
-    ["Bandage"] = true,
-    ["Dr Rico's Cure"] = true, -- Snake Oil
-    
-    -- Gold Items
-    ["Gold Bar"] = true,
-    ["Gold Statue"] = true,
-    ["Gold Painting"] = true,
-    ["Gold Cup"] = true,
-    ["Gold Plate"] = true,
-    ["Gold Watch"] = true,
-    
-    -- Silver Items
-    ["Silver Ingot"] = true,
-    ["Silver Statue"] = true,
-    ["Silver Painting"] = true,
-    ["Silver Cup"] = true,
-    ["Silver Plate"] = true,
-    ["Silver Watch"] = true,
-    
-    -- Other Valuables
-    ["Stone Statue"] = true,
-    ["Wood Painting"] = true,
-    
-    -- Corpses
-    ["Bandit Corpse"] = true,
-    ["Werewolf Corpse"] = true,
-    ["Vampire Corpse"] = true,
-    
-    -- Common Items
-    ["Barrel"] = true,
-    ["Box"] = true,
-    ["Chair"] = true,
-    ["Pot"] = true,
-    ["Tea"] = true,
-    ["Rope"] = true,
-    ["Wheel"] = true
-}
+-- GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "EnhancedUI"
+screenGui.Parent = game:GetService("CoreGui")
 
--- Valid Enemies List
-local ValidEnemies = {
-    -- Zombies
-    ["Zombie"] = true,
-    ["Runner Zombie"] = true,
-    ["Banker Zombie"] = true,
-    ["Zombie Soldier"] = true,
-    ["Lab Zombie"] = true,
-    
-    -- Outlaws
-    ["Outlaw"] = true,
-    ["Horseback Outlaw"] = true,
-    
-    -- Supernatural
-    ["Vampire"] = true,
-    ["Wolf"] = true,
-    ["Werewolf"] = true
-}
+local panel = Instance.new("Frame")
+panel.Size = UDim2.new(0, 320, 0, 180)
+panel.Position = UDim2.new(0.5, -160, 0.7, -90)
+panel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+panel.BackgroundTransparency = 0.15
+panel.Parent = screenGui
 
--- Valid Passive Creatures
-local ValidPassive = {
-    ["Horse"] = true,
-    ["Unicorn"] = true
-}
+-- Border Radius
+local uicorner = Instance.new("UICorner")
+uicorner.CornerRadius = UDim.new(0, 12)
+uicorner.Parent = panel
 
--- Create Mobile GUI with improved draggable functionality
-local function CreateMobileGui()
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "ESP_Mobile_GUI"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = CoreGui
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.Position = UDim2.new(0, 0, 0, 0)
+titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+titleBar.BackgroundTransparency = 0.15
+titleBar.Parent = panel
 
-    -- Main control frame
-    local ControlFrame = Instance.new("Frame")
-    ControlFrame.Name = "ControlFrame"
-    local frameSize = UDim2.new(0, 200, 0, 120)
-    ControlFrame.Size = frameSize
-    ControlFrame.Position = UDim2.new(0.5, -100, 0.8, -60)
-    ControlFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    ControlFrame.BackgroundTransparency = 0.2
-    ControlFrame.BorderSizePixel = 0
-    ControlFrame.Parent = ScreenGui
-    ControlFrame.ClipsDescendants = true -- Add this for smooth minimize animation
+local title = Instance.new("TextLabel")
+title.Text = "Oniux Dead Rails"
+title.Size = UDim2.new(1, -90, 1, 0)
+title.Position = UDim2.new(0, 10, 0, 0)
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 18
+title.Font = Enum.Font.SourceSansBold
+title.BackgroundTransparency = 1
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = titleBar
 
-    -- Add rounded corners
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 10)
-    UICorner.Parent = ControlFrame
+-- Credit Text
+local credit = Instance.new("TextLabel")
+credit.Text = "By Mytril"
+credit.Size = UDim2.new(1, 0, 0, 20)
+credit.Position = UDim2.new(0, 0, 1, -25)
+credit.TextColor3 = Color3.fromRGB(128, 128, 128)
+credit.TextSize = 14
+credit.Font = Enum.Font.SourceSans
+credit.BackgroundTransparency = 1
+credit.Parent = panel
 
-    -- Title bar
-    local TitleBar = Instance.new("Frame")
-    TitleBar.Name = "TitleBar"
-    TitleBar.Size = UDim2.new(1, 0, 0, 30)
-    TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    TitleBar.BorderSizePixel = 0
-    TitleBar.Parent = ControlFrame
+-- Draggable support for mobile & PC
+local dragging, dragInput, dragStart, startPos
 
-    local TitleCorner = Instance.new("UICorner")
-    TitleCorner.CornerRadius = UDim.new(0, 10)
-    TitleCorner.Parent = TitleBar
-
-    -- Title Label (adjusted position for buttons)
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Name = "TitleLabel"
-    TitleLabel.Size = UDim2.new(0.7, 0, 1, 0)
-    TitleLabel.Position = UDim2.new(0.02, 0, 0, 0)
-    TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Text = "Oniux ESP"
-    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TitleLabel.TextSize = 16
-    TitleLabel.Font = Enum.Font.GothamBold
-    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TitleLabel.Parent = TitleBar
-
-    -- Close Button
-    local CloseButton = Instance.new("ImageButton")
-    CloseButton.Name = "CloseButton"
-    CloseButton.Size = UDim2.new(0, 20, 0, 20)
-    CloseButton.Position = UDim2.new(0.92, 0, 0.17, 0)
-    CloseButton.BackgroundColor3 = Color3.fromRGB(255, 95, 95)
-    CloseButton.BorderSizePixel = 0
-    CloseButton.Parent = TitleBar
-
-    local CloseCorner = Instance.new("UICorner")
-    CloseCorner.CornerRadius = UDim.new(1, 0)
-    CloseCorner.Parent = CloseButton
-
-    -- Close Button X
-    local CloseX = Instance.new("TextLabel")
-    CloseX.Name = "CloseX"
-    CloseX.Size = UDim2.new(1, 0, 1, 0)
-    CloseX.BackgroundTransparency = 1
-    CloseX.Text = "×"
-    CloseX.TextColor3 = Color3.fromRGB(40, 40, 40)
-    CloseX.TextSize = 20
-    CloseX.Font = Enum.Font.GothamBold
-    CloseX.Parent = CloseButton
-
-    -- Minimize Button
-    local MinimizeButton = Instance.new("ImageButton")
-    MinimizeButton.Name = "MinimizeButton"
-    MinimizeButton.Size = UDim2.new(0, 20, 0, 20)
-    MinimizeButton.Position = UDim2.new(0.8, 0, 0.17, 0)
-    MinimizeButton.BackgroundColor3 = Color3.fromRGB(255, 189, 68)
-    MinimizeButton.BorderSizePixel = 0
-    MinimizeButton.Parent = TitleBar
-
-    local MinimizeCorner = Instance.new("UICorner")
-    MinimizeCorner.CornerRadius = UDim.new(1, 0)
-    MinimizeCorner.Parent = MinimizeButton
-
-    -- Minimize Button Line
-    local MinimizeLine = Instance.new("TextLabel")
-    MinimizeLine.Name = "MinimizeLine"
-    MinimizeLine.Size = UDim2.new(1, 0, 1, 0)
-    MinimizeLine.BackgroundTransparency = 1
-    MinimizeLine.Text = "−"
-    MinimizeLine.TextColor3 = Color3.fromRGB(40, 40, 40)
-    MinimizeLine.TextSize = 20
-    MinimizeLine.Font = Enum.Font.GothamBold
-    MinimizeLine.Parent = MinimizeButton
-
-    -- Button Hover Effects
-    local function ButtonHoverEffect(button, defaultColor, hoverColor)
-        button.MouseEnter:Connect(function()
-            TweenService:Create(button, TweenInfo.new(0.2), {
-                BackgroundColor3 = hoverColor
-            }):Play()
-        end)
-        
-        button.MouseLeave:Connect(function()
-            TweenService:Create(button, TweenInfo.new(0.2), {
-                BackgroundColor3 = defaultColor
-            }):Play()
-        end)
-    end
-
-    ButtonHoverEffect(CloseButton, Color3.fromRGB(255, 95, 95), Color3.fromRGB(255, 70, 70))
-    ButtonHoverEffect(MinimizeButton, Color3.fromRGB(255, 189, 68), Color3.fromRGB(255, 170, 50))
-
-    -- Minimize/Maximize Animation
-    local isMinimized = false
-    local originalSize = frameSize
-    local minimizedSize = UDim2.new(0, 200, 0, 30)
-
-    MinimizeButton.MouseButton1Click:Connect(function()
-        isMinimized = not isMinimized
-        
-        -- Create smooth animation
-        local targetSize = isMinimized and minimizedSize or originalSize
-        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        
-        -- Rotate minimize button
-        local rotationTween = TweenService:Create(MinimizeLine, tweenInfo, {
-            Rotation = isMinimized and 180 or 0
-        })
-        rotationTween:Play()
-        
-        -- Animate frame size
-        local sizeTween = TweenService:Create(ControlFrame, tweenInfo, {
-            Size = targetSize
-        })
-        sizeTween:Play()
-    end)
-
-    -- Close Animation and Functionality
-    CloseButton.MouseButton1Click:Connect(function()
-        -- Fade out animation
-        local fadeInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        
-        local fadeTween = TweenService:Create(ControlFrame, fadeInfo, {
-            BackgroundTransparency = 1
-        })
-        
-        -- Animate all children
-        local function fadeOutRecursive(parent)
-            for _, child in ipairs(parent:GetChildren()) do
-                if child:IsA("GuiObject") then
-                    TweenService:Create(child, fadeInfo, {
-                        BackgroundTransparency = 1,
-                        TextTransparency = 1,
-                        ImageTransparency = 1
-                    }):Play()
-                end
-                fadeOutRecursive(child)
-            end
-        end
-        
-        fadeOutRecursive(ControlFrame)
-        fadeTween:Play()
-        
-        -- Destroy after animation
-        fadeTween.Completed:Connect(function()
-            ScreenGui:Destroy()
-            -- Clean up ESP
-            for _, data in pairs(ESP.ESPObjects) do
-                if data.highlight then data.highlight:Destroy() end
-                if data.billboard then data.billboard:Destroy() end
-            end
-            ESP.ESPObjects = {}
-            ESP.Enabled = false
-        end)
-    end)
-
-    -- Create buttons
-    local function CreateButton(name, position)
-        local button = Instance.new("TextButton")
-        button.Name = name
-        button.Size = UDim2.new(0.9, 0, 0, 25)
-        button.Position = position
-        button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-        button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        button.Text = name
-        button.TextSize = 14
-        button.Font = Enum.Font.GothamBold
-        button.Parent = ControlFrame
-        
-        local buttonCorner = Instance.new("UICorner")
-        buttonCorner.CornerRadius = UDim.new(0, 6)
-        buttonCorner.Parent = button
-        
-        -- Add hover effect
-        button.MouseEnter:Connect(function()
-            TweenService:Create(button, TweenInfo.new(0.2), {
-                BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-            }):Play()
-        end)
-        
-        button.MouseLeave:Connect(function()
-            TweenService:Create(button, TweenInfo.new(0.2), {
-                BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            }):Play()
-        end)
-        
-        return button
-    end
-
-    local ESPButton = CreateButton("ESP: OFF", UDim2.new(0.05, 0, 0.35, 0))
-    local ItemsButton = CreateButton("Items: OFF", UDim2.new(0.05, 0, 0.55, 0))
-    local EnemiesButton = CreateButton("Enemies: OFF", UDim2.new(0.05, 0, 0.75, 0))
-
-    -- Improved dragging functionality
-    local isDragging = false
-    local dragStart = nil
-    local startPos = nil
-    local dragInput = nil
-    local dragSpeed = 0.02
-    local dragStarted = false
-
-    local function updateDrag(input)
-        if not isDragging then return end
-        
-        local delta = input.Position - dragStart
-        local position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-        
-        -- Smooth dragging using TweenService
-        local tweenInfo = TweenInfo.new(dragSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        TweenService:Create(ControlFrame, tweenInfo, {Position = position}):Play()
-    end
-
-    TitleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = true
-            dragStarted = true
-            dragStart = input.Position
-            startPos = ControlFrame.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    isDragging = false
-                    dragStarted = false
-                end
-            end)
-        end
-    end)
-
-    TitleBar.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if dragInput and input == dragInput and dragStarted then
-            updateDrag(input)
-        end
-    end)
-
-    -- Button functionality
-    local function UpdateButtonState(button, enabled)
-        button.Text = button.Name:gsub(": .*$", ": " .. (enabled and "ON" or "OFF"))
-        button.BackgroundColor3 = enabled and Color3.fromRGB(60, 120, 60) or Color3.fromRGB(60, 60, 60)
-    end
-
-    ESPButton.MouseButton1Click:Connect(function()
-        ESP.Enabled = not ESP.Enabled
-        UpdateButtonState(ESPButton, ESP.Enabled)
-        
-        if not ESP.Enabled then
-            for _, data in pairs(ESP.ESPObjects) do
-                if data.highlight then data.highlight:Destroy() end
-                if data.billboard then data.billboard:Destroy() end
-            end
-            ESP.ESPObjects = {}
-        end
-    end)
-
-    ItemsButton.MouseButton1Click:Connect(function()
-        ESP.ItemESP = not ESP.ItemESP
-        UpdateButtonState(ItemsButton, ESP.ItemESP)
-    end)
-
-    EnemiesButton.MouseButton1Click:Connect(function()
-        ESP.EnemyESP = not ESP.EnemyESP
-        UpdateButtonState(EnemiesButton, ESP.EnemyESP)
-    end)
-
-    return ScreenGui
+local function update(input)
+    local delta = input.Position - dragStart
+    panel.Position = UDim2.new(
+        startPos.X.Scale, startPos.X.Offset + delta.X,
+        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+    )
 end
 
--- Variables
-local ESPEnabled = false
-local ShowItems = false
-local ShowEnemies = false
-local ESPObjects = {}
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = panel.Position
 
--- Optimize ESP update function
-local function UpdateESP()
-    if not ESP.Enabled or (not ESP.ItemESP and not ESP.EnemyESP) then return end
-    
-    local currentTime = tick()
-    if currentTime - LastUpdate < UPDATE_INTERVAL then return end
-    LastUpdate = currentTime
-    
-    local playerPos = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not playerPos then return end
-    playerPos = playerPos.Position
-    
-    -- Clean up invalid objects
-    for obj, data in pairs(ESP.ESPObjects) do
-        if not obj or not obj:IsDescendantOf(game) then
-            if data.highlight then data.highlight:Destroy() end
-            if data.billboard then data.billboard:Destroy() end
-            ESP.ESPObjects[obj] = nil
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        update(input)
+    end
+end)
+
+-- Outline with color changing animation
+local outline = Instance.new("UIStroke")
+outline.Thickness = 3
+outline.Parent = panel
+
+local colors = {Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 255, 0), Color3.fromRGB(0, 0, 255)}
+local currentColor = 1
+
+local function changeOutlineColor()
+    local tween = TweenService:Create(outline, TweenInfo.new(1, Enum.EasingStyle.Linear), {Color = colors[currentColor]})
+    tween:Play()
+    tween.Completed:Connect(function()
+        currentColor = currentColor % #colors + 1
+        changeOutlineColor()
+    end)
+end
+changeOutlineColor()
+
+-- Minimize and Close Buttons
+local function createButton(text, position)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 40, 0, 30)
+    button.Position = position
+    button.BackgroundColor3 = Color3.fromRGB(128, 128, 128)  -- Gray color
+    button.Text = text
+    button.TextSize = 20
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Parent = titleBar
+
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0, 8)
+    buttonCorner.Parent = button
+
+    return button
+end
+
+local closeButton = createButton("X", UDim2.new(1, -45, 0, 0))
+local minimizeButton = createButton("-", UDim2.new(1, -90, 0, 0))
+
+-- Switch Toggle
+local function createSwitch(labelText, position)
+    local switchFrame = Instance.new("Frame")
+    switchFrame.Size = UDim2.new(0, 80, 0, 30)  -- Smaller switch
+    switchFrame.Position = position
+    switchFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    switchFrame.Parent = panel
+
+    local uicornerFrame = Instance.new("UICorner")
+    uicornerFrame.CornerRadius = UDim.new(1, 0)
+    uicornerFrame.Parent = switchFrame
+
+    local switch = Instance.new("Frame")
+    switch.Size = UDim2.new(0, 30, 0, 30)  -- Smaller switch
+    switch.Position = UDim2.new(0, 0, 0, 0)
+    switch.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    switch.Parent = switchFrame
+
+    local uicornerSwitch = Instance.new("UICorner")
+    uicornerSwitch.CornerRadius = UDim.new(1, 0)
+    uicornerSwitch.Parent = switch
+
+    -- Label for Switch
+    local switchLabel = Instance.new("TextLabel")
+    switchLabel.Text = labelText
+    switchLabel.Size = UDim2.new(0, 60, 0, 20)
+    switchLabel.Position = UDim2.new(0, -70, 0.5, -10)
+    switchLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    switchLabel.TextSize = 14
+    switchLabel.Font = Enum.Font.SourceSans
+    switchLabel.BackgroundTransparency = 1
+    switchLabel.Parent = switchFrame
+
+    return switchFrame, switch
+end
+
+local npcLockSwitchFrame, npcLockSwitch = createSwitch("NPC Lock", UDim2.new(0.5, -40, 0.3, -15))
+local espSwitchFrame, espSwitch = createSwitch("ESP (WIP)", UDim2.new(0.5, -40, 0.6, -15))
+
+-- NPC Lock Functionality
+local npcLock = false
+local toggleLoop
+local lastTarget = nil
+
+local function animateSwitch(switch, enabled)
+    if enabled then
+        TweenService:Create(switch, TweenInfo.new(0.3), {Position = UDim2.new(1, -30, 0, 0), BackgroundColor3 = Color3.fromRGB(0, 255, 0)}):Play()
+    else
+        TweenService:Create(switch, TweenInfo.new(0.3), {Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(255, 0, 0)}):Play()
+    end
+end
+
+-- Get closest NPC
+local function getClosestNPC()
+    local closestNPC = nil
+    local closestDistance = math.huge
+
+    for _, object in ipairs(workspace:GetDescendants()) do
+        if object:IsA("Model") and object:FindFirstChild("Humanoid") and object:FindFirstChild("HumanoidRootPart") then
+            local isPlayer = false
+            for _, pl in ipairs(Players:GetPlayers()) do
+                if pl.Character == object then
+                    isPlayer = true
+                    break
+                end
+            end
+            if not isPlayer then
+                local distance = (object.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestNPC = object
+                end
+            end
         end
     end
-    
-    -- Update existing and add new objects
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") or obj:IsA("BasePart") then
-            local isItem = ESP.ItemESP and ValidItems[obj.Name]
-            local isEnemy = ESP.EnemyESP and (ValidEnemies[obj.Name] or ValidPassive[obj.Name])
-            
-            if isItem or isEnemy then
-                local root = obj:IsA("Model") and (obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart) or obj
-                if root then
-                    local distance = (root.Position - playerPos).Magnitude
-                    
-                    if distance <= ESP_DISTANCE then
-                        if not ESP.ESPObjects[obj] then
-                            -- Create new ESP
-                            local highlight = Instance.new("Highlight")
-                            highlight.FillColor = isItem and ESP.ItemColor or ESP.EnemyColor
-                            highlight.OutlineColor = highlight.FillColor
-                            highlight.FillTransparency = HIGHLIGHT_TRANSPARENCY
-                            highlight.OutlineTransparency = 0
-                            highlight.Parent = obj
-                            
-                            local billboard = CreateLabel(obj, obj.Name)
-                            
-                            ESP.ESPObjects[obj] = {
-                                highlight = highlight,
-                                billboard = billboard
-                            }
-                        end
-                        
-                        -- Update distance
-                        local data = ESP.ESPObjects[obj]
-                        if data.billboard then
-                            local distanceLabel = data.billboard:FindFirstChild("DistanceLabel")
-                            if distanceLabel then
-                                distanceLabel.Text = string.format("[%d m]", math.floor(distance))
-                            end
-                        end
-                    else
-                        -- Remove if too far
-                        if ESP.ESPObjects[obj] then
-                            local data = ESP.ESPObjects[obj]
-                            if data.highlight then data.highlight:Destroy() end
-                            if data.billboard then data.billboard:Destroy() end
-                            ESP.ESPObjects[obj] = nil
-                        end
+    return closestNPC
+end
+
+local function lockNPC()
+    if npcLock then
+        toggleLoop = runService.RenderStepped:Connect(function()
+            local npc = getClosestNPC()
+            if npc and npc:FindFirstChild("Humanoid") then
+                camera.CameraSubject = npc.Humanoid
+                lastTarget = npc
+            else
+                camera.CameraSubject = player.Character:FindFirstChild("Humanoid")
+            end
+        end)
+    else
+        if toggleLoop then
+            toggleLoop:Disconnect()
+        end
+        camera.CameraSubject = player.Character:FindFirstChild("Humanoid")
+    end
+end
+
+-- ESP Functionality
+local espEnabled = false
+local highlights = {}
+
+local function addHighlight(instance, color)
+    if instance and not instance:FindFirstChild("Highlight") then
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "Highlight"
+        highlight.FillColor = color
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.Parent = instance
+        highlights[instance] = highlight
+    end
+end
+
+local function removeHighlight(instance)
+    if instance and instance:FindFirstChild("Highlight") then
+        instance.Highlight:Destroy()
+        highlights[instance] = nil
+    end
+end
+
+-- List of items to highlight (e.g., guns, coals, newspapers)
+local itemNames = {"Gun", "Coal", "Newspaper"}  -- Add more item names as needed
+
+local function toggleESP()
+    if espEnabled then
+        for _, object in ipairs(workspace:GetDescendants()) do
+            if object:IsA("Model") or object:IsA("BasePart") then
+                for _, itemName in ipairs(itemNames) do
+                    if object.Name:find(itemName) then
+                        addHighlight(object, Color3.fromRGB(0, 255, 255))  -- Highlight items
+                        break
                     end
                 end
             end
         end
+    else
+        for instance, _ in pairs(highlights) do
+            removeHighlight(instance)
+        end
     end
 end
 
--- Main Loop
-RunService.RenderStepped:Connect(function()
-    if ESPEnabled and (ShowItems or ShowEnemies) then
-        UpdateESP()
+-- Switch Toggles
+npcLockSwitchFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        npcLock = not npcLock
+        animateSwitch(npcLockSwitch, npcLock)
+        lockNPC()
     end
-end) 
+end)
+
+espSwitchFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        espEnabled = not espEnabled
+        animateSwitch(espSwitch, espEnabled)
+        toggleESP()
+    end
+end)
+
+-- Minimize Button: Collapse Panel
+local isMinimized = false
+minimizeButton.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        TweenService:Create(panel, TweenInfo.new(0.3), {Size = UDim2.new(0, 320, 0, 30)}):Play()
+        npcLockSwitchFrame.Visible = false
+        espSwitchFrame.Visible = false
+    else
+        TweenService:Create(panel, TweenInfo.new(0.3), {Size = UDim2.new(0, 320, 0, 180)}):Play()
+        npcLockSwitchFrame.Visible = true
+        espSwitchFrame.Visible = true
+    end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+end)
+
+runService.RenderStepped:Connect(function()
+    if espEnabled then
+        toggleESP()
+    end
+end)
+
+local player = game:GetService("Players").LocalPlayer
+local runService = game:GetService("RunService")
+
+-- Bypass zoom restrictions
+runService.RenderStepped:Connect(function()
+    player.CameraMode = Enum.CameraMode.Classic
+    player.CameraMaxZoomDistance = 10000 -- Maximum zoom out distance
+    player.CameraMinZoomDistance = 0 -- Minimum zoom in distance
+end)
