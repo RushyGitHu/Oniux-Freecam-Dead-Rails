@@ -1,344 +1,107 @@
 -- Services
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-LocalPlayer.CameraMode = Enum.CameraMode.Classic
 local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
-local Camera = workspace.CurrentCamera
+local UserInputService = game:GetService("UserInputService")
 
--- Show initial notification
-StarterGui:SetCore("SendNotification", {
-    Title = "Code by GioBolqvi",
-    Text = "And modified by my credits to him",
-    Duration = 3
-})
+-- Constants
+local CAMERA_DISTANCE = 10
+local UPDATE_INTERVAL = 0.1
 
--- Create GUI
+-- GUI Setup
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "NPC_Lock_GUI"
+ScreenGui.Name = "AimbotGui"
 ScreenGui.Parent = game:GetService("CoreGui")
 
--- Create main toggle button
+-- Create Toggle Button
 local ToggleButton = Instance.new("TextButton")
-ToggleButton.Name = "NPC Lock: ON/OFF"
+ToggleButton.Name = "AimbotToggle"
 ToggleButton.Size = UDim2.new(0, 150, 0, 50)
 ToggleButton.Position = UDim2.new(0.5, -75, 0.9, -25)
 ToggleButton.BackgroundColor3 = Color3.new(1, 0, 0)
 ToggleButton.TextColor3 = Color3.new(1, 1, 1)
-ToggleButton.Text = "NPC Lock: OFF"
-ToggleButton.Font = Enum.Font.Fantasy
-ToggleButton.TextScaled = true
+ToggleButton.Text = "Aimbot: OFF"
+ToggleButton.Font = Enum.Font.SourceSansBold
 ToggleButton.TextSize = 20
 ToggleButton.Parent = ScreenGui
 
--- Create settings button
-local SettingsButton = Instance.new("TextButton")
-SettingsButton.Name = "Settings"
-SettingsButton.Size = UDim2.new(0, 50, 0, 50)
-SettingsButton.Position = UDim2.new(0.95, -50, 0.05, 0)
-SettingsButton.BackgroundColor3 = Color3.new(0, 0, 0)
-SettingsButton.TextColor3 = Color3.new(1, 1, 1)
-SettingsButton.Text = "⚙️"
-SettingsButton.Font = Enum.Font.Fantasy
-SettingsButton.TextScaled = true
-SettingsButton.TextSize = 20
-SettingsButton.Parent = ScreenGui
+-- Add Corner Radius
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = ToggleButton
 
--- Add rounded corners
-local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(0, 12)
-ToggleCorner.Parent = ToggleButton
+-- Variables
+local isEnabled = false
+local targetPlayer = nil
 
-local SettingsCorner = Instance.new("UICorner")
-SettingsCorner.CornerRadius = UDim.new(0, 12)
-SettingsCorner.Parent = SettingsButton
-
--- Make buttons draggable
-local function MakeDraggable(button)
-    local isDragging = false
-    local dragInput
-    local dragStart
-    local startPos
-
-    button.InputBegan:Connect(function(input)
-        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-            isDragging = true
-            dragStart = input.Position
-            startPos = button.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    isDragging = false
-                end
-            end)
-        end
-    end)
-
-    button.InputChanged:Connect(function(input)
-        if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            dragInput = input
-        end
-    end)
-
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
-        if isDragging and input == dragInput then
-            local delta = input.Position - dragStart
-            button.Position = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-end
-
-MakeDraggable(SettingsButton)
-MakeDraggable(ToggleButton)
-
--- NPC Types to track
-local NPCTypes = {
-    "Walker",
-    "Runner",
-    "Banker",
-    "Outlaw",
-    "Vampire",
-    "Wolf",
-    "Werewolf",
-    "Horse",
-    "Unicorn"
-}
-
--- Create enabled NPCs table
-local EnabledNPCs = {}
-for _, npcType in ipairs(NPCTypes) do
-    EnabledNPCs[npcType] = true
-end
-
--- Function to get NPC type from name
-local function GetNPCType(name)
-    for npcType, _ in pairs(EnabledNPCs) do
-        if name:find(npcType) then
-            return npcType
-        end
-    end
-    return nil
-end
-
--- ESP Functions
-local function AddPlayerESP()
-    if LocalPlayer.Character and not LocalPlayer.Character:FindFirstChild("PlayerHighlightESP") then
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "PlayerHighlightESP"
-        highlight.FillColor = Color3.new(1, 1, 1)
-        highlight.OutlineColor = Color3.new(1, 1, 1)
-        highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 0
-        highlight.Parent = LocalPlayer.Character
-    end
-end
-
-local function RemovePlayerESP()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("PlayerHighlightESP") then
-        LocalPlayer.Character.PlayerHighlightESP:Destroy()
-    end
-end
-
--- NPC Tracking
-local TrackedNPCs = {}
-
-local function UpdateNPCList()
-    local newList = {}
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") then
-            local humanoid = obj:FindFirstChild("Humanoid") or obj:FindFirstChildWhichIsA("Humanoid")
-            local root = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
-            
-            if humanoid and root and humanoid.Health > 0 then
-                local isPlayer = false
-                for _, player in ipairs(Players:GetPlayers()) do
-                    if player.Character == obj then
-                        isPlayer = true
-                        break
-                    end
-                end
-                
-                if not isPlayer then
-                    local npcType = GetNPCType(obj.Name)
-                    if npcType and EnabledNPCs[npcType] then
-                        table.insert(newList, obj)
-                    end
-                end
+-- Functions
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local distance = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+            if distance < shortestDistance then
+                closestPlayer = player
+                shortestDistance = distance
             end
         end
     end
-    TrackedNPCs = newList
+    
+    return closestPlayer
 end
 
--- Update NPC list every 0.1 seconds
-spawn(function()
-    while true do
-        UpdateNPCList()
-        wait(0.1)
+local function updateAimbot()
+    if not isEnabled then return end
+    
+    local target = getClosestPlayer()
+    if not target then return end
+    
+    local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
+    
+    local camera = workspace.CurrentCamera
+    camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
+end
+
+-- Make button draggable
+local isDragging = false
+local dragStart = nil
+local startPos = nil
+
+ToggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDragging = true
+        dragStart = input.Position
+        startPos = ToggleButton.Position
     end
 end)
 
--- Find closest NPC
-local function GetClosestNPC()
-    if not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) then
-        return nil
+ToggleButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDragging = false
     end
-    
-    local closest = nil
-    local minDistance = math.huge
-    local playerPos = LocalPlayer.Character.HumanoidRootPart.Position
-    
-    for _, npc in ipairs(TrackedNPCs) do
-        local root = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
-        if root then
-            local distance = (root.Position - playerPos).Magnitude
-            if distance < minDistance then
-                minDistance = distance
-                closest = npc
-            end
-        end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        ToggleButton.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
     end
-    
-    return closest
-end
+end)
 
--- Settings GUI
-local function UpdateButtonColor(button, enabled)
-    if enabled then
-        button.BackgroundColor3 = Color3.new(0, 1, 0)
-    else
-        button.BackgroundColor3 = Color3.new(1, 0, 0)
-    end
-end
-
-local settingsOpen = false
-
-local function ToggleSettings()
-    settingsOpen = not settingsOpen
-    
-    if settingsOpen then
-        local SettingsFrame = Instance.new("Frame")
-        SettingsFrame.Name = "SettingsFrame"
-        SettingsFrame.Size = UDim2.new(0, 270, 0, 300)
-        SettingsFrame.Position = UDim2.new(0.5, -135, 0.5, -150)
-        SettingsFrame.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
-        SettingsFrame.Parent = ScreenGui
-        
-        local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 12)
-        Corner.Parent = SettingsFrame
-        
-        local Title = Instance.new("TextLabel")
-        Title.Size = UDim2.new(1, 0, 0, 40)
-        Title.Position = UDim2.new(0, 0, 0, 0)
-        Title.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-        Title.TextColor3 = Color3.new(1, 1, 1)
-        Title.Text = "NPC Settings"
-        Title.Font = Enum.Font.Fantasy
-        Title.TextScaled = true
-        Title.Parent = SettingsFrame
-        
-        local ScrollFrame = Instance.new("ScrollingFrame")
-        ScrollFrame.Size = UDim2.new(1, 0, 1, -40)
-        ScrollFrame.Position = UDim2.new(0, 0, 0, 40)
-        ScrollFrame.BackgroundTransparency = 1
-        ScrollFrame.Parent = SettingsFrame
-        
-        local Grid = Instance.new("UIGridLayout")
-        Grid.CellSize = UDim2.new(0.48, 0, 0, 40)
-        Grid.CellPadding = UDim2.new(0, 5, 0, 5)
-        Grid.Parent = ScrollFrame
-        
-        -- Create toggle buttons for each NPC type
-        for _, npcType in ipairs(NPCTypes) do
-            local ToggleButton = Instance.new("TextButton")
-            ToggleButton.Size = UDim2.new(0, 120, 0, 40)
-            ToggleButton.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
-            ToggleButton.TextColor3 = Color3.new(1, 1, 1)
-            ToggleButton.Text = npcType .. ": " .. (EnabledNPCs[npcType] and "ON" or "OFF")
-            ToggleButton.Font = Enum.Font.Fantasy
-            ToggleButton.TextScaled = true
-            ToggleButton.Parent = ScrollFrame
-            
-            local ButtonCorner = Instance.new("UICorner")
-            ButtonCorner.CornerRadius = UDim.new(0, 8)
-            ButtonCorner.Parent = ToggleButton
-            
-            UpdateButtonColor(ToggleButton, EnabledNPCs[npcType])
-            
-            ToggleButton.MouseButton1Click:Connect(function()
-                EnabledNPCs[npcType] = not EnabledNPCs[npcType]
-                ToggleButton.Text = npcType .. ": " .. (EnabledNPCs[npcType] and "ON" or "OFF")
-                UpdateButtonColor(ToggleButton, EnabledNPCs[npcType])
-            end)
-        end
-        
-        task.wait(0.1)
-        ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, Grid.AbsoluteContentSize.Y)
-    else
-        local frame = ScreenGui:FindFirstChild("SettingsFrame")
-        if frame then
-            frame:Destroy()
-        end
-    end
-end
-
-SettingsButton.MouseButton1Click:Connect(ToggleSettings)
-
--- Main NPC Lock functionality
-local isLocked = false
-local updateConnection
-
+-- Toggle functionality
 ToggleButton.MouseButton1Click:Connect(function()
-    isLocked = not isLocked
-    
-    if isLocked then
-        ToggleButton.Text = "NPC Lock: ON"
-        
-        updateConnection = RunService.RenderStepped:Connect(function()
-            local target = GetClosestNPC()
-            
-            if target and target:FindFirstChild("Humanoid") then
-                local humanoid = target:FindFirstChild("Humanoid")
-                
-                if humanoid.Health > 0 then
-                    Camera.CameraSubject = humanoid
-                    AddPlayerESP()
-                else
-                    StarterGui:SetCore("SendNotification", {
-                        Title = "Killed NPC",
-                        Text = target.Name,
-                        Duration = 0.4
-                    })
-                    RemovePlayerESP()
-                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                        Camera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
-                    end
-                end
-            else
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                    Camera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
-                end
-                RemovePlayerESP()
-            end
-        end)
-    else
-        ToggleButton.Text = "NPC Lock: OFF"
-        
-        if updateConnection then
-            updateConnection:Disconnect()
-            updateConnection = nil
-        end
-        
-        RemovePlayerESP()
-        
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            Camera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
-        end
-    end
-end) 
+    isEnabled = not isEnabled
+    ToggleButton.Text = "Aimbot: " .. (isEnabled and "ON" or "OFF")
+    ToggleButton.BackgroundColor3 = isEnabled and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+end)
+
+-- Main loop
+RunService.RenderStepped:Connect(updateAimbot) 
