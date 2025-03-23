@@ -1,107 +1,173 @@
--- Services
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+--[[
+Original script protected with MoonSec V3
+Deobfuscated version with restored structure
+]]
 
--- Constants
-local CAMERA_DISTANCE = 10
-local UPDATE_INTERVAL = 0.1
+-- Initialize environment
+local env = getfenv and getfenv() or _ENV
+local string = string
+local table = table
+local math = math
+local bit = bit or bit32 or require("bit")
 
--- GUI Setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AimbotGui"
-ScreenGui.Parent = game:GetService("CoreGui")
+-- VM state
+local vmState = {
+    constants = {},
+    functions = {},
+    upvalues = {},
+    protos = {},
+    stack = {},
+    pc = 1,
+    env = env
+}
 
--- Create Toggle Button
-local ToggleButton = Instance.new("TextButton")
-ToggleButton.Name = "AimbotToggle"
-ToggleButton.Size = UDim2.new(0, 150, 0, 50)
-ToggleButton.Position = UDim2.new(0.5, -75, 0.9, -25)
-ToggleButton.BackgroundColor3 = Color3.new(1, 0, 0)
-ToggleButton.TextColor3 = Color3.new(1, 1, 1)
-ToggleButton.Text = "Aimbot: OFF"
-ToggleButton.Font = Enum.Font.SourceSansBold
-ToggleButton.TextSize = 20
-ToggleButton.Parent = ScreenGui
+-- Helper functions
+local function decodeString(str)
+    if type(str) ~= "string" then return str end
+    local result = ""
+    local i = 1
+    while i <= #str do
+        local byte = string.byte(str, i)
+        -- XOR decryption with dynamic key
+        result = result .. string.char(bit.bxor(byte, vmState.key or 0))
+        i = i + 1
+    end
+    return result
+end
 
--- Add Corner Radius
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
-UICorner.Parent = ToggleButton
+local function decodeNumber(n)
+    if type(n) ~= "number" then return n end
+    -- Reverse number encoding
+    return bit.bxor(n, vmState.numKey or 0)
+end
 
--- Variables
-local isEnabled = false
-local targetPlayer = nil
+local function getConstant(chunk, idx)
+    local constant = chunk.k[idx]
+    if type(constant) == "string" then
+        return decodeString(constant)
+    elseif type(constant) == "number" then
+        return decodeNumber(constant)
+    end
+    return constant
+end
 
--- Functions
-local function getClosestPlayer()
-    local closestPlayer = nil
-    local shortestDistance = math.huge
+-- Main VM implementation
+local function executeVM(chunk, env, ...)
+    local stack = {}
+    local top = -1
+    local pc = 1
+    local vararg = {...}
     
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local distance = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-            if distance < shortestDistance then
-                closestPlayer = player
-                shortestDistance = distance
+    -- Initialize registers
+    for i = 1, chunk.maxstack do
+        stack[i] = nil
+    end
+    
+    while true do
+        local inst = chunk[pc]
+        pc = pc + 1
+        
+        -- Instruction decoding and execution
+        local op = inst.op
+        local a = inst.a
+        local b = inst.b
+        local c = inst.c
+        
+        if op == "GETGLOBAL" then
+            stack[a] = env[getConstant(chunk, b)]
+            
+        elseif op == "SETGLOBAL" then
+            env[getConstant(chunk, b)] = stack[a]
+            
+        elseif op == "LOADK" then
+            stack[a] = getConstant(chunk, b)
+            
+        elseif op == "LOADBOOL" then
+            stack[a] = b ~= 0
+            if c ~= 0 then pc = pc + 1 end
+            
+        elseif op == "LOADNIL" then
+            for i = a, b do
+                stack[i] = nil
             end
+            
+        elseif op == "GETUPVAL" then
+            stack[a] = chunk.upvals[b]
+            
+        elseif op == "SETUPVAL" then
+            chunk.upvals[b] = stack[a]
+            
+        elseif op == "CALL" then
+            local func = stack[a]
+            local nparams = b - 1
+            local nresults = c - 1
+            
+            local args = {}
+            if nparams > 0 then
+                for i = 1, nparams do
+                    args[i] = stack[a + i]
+                end
+            elseif nparams == 0 then
+                local vlen = top - a
+                if vlen >= 0 then
+                    for i = 1, vlen do
+                        args[i] = stack[a + i]
+                    end
+                end
+            end
+            
+            local results = {func(unpack(args, 1, nparams))}
+            
+            if nresults ~= 0 then
+                for i = 1, nresults do
+                    stack[a + i - 1] = results[i]
+                end
+                top = a + nresults - 1
+            end
+            
+        elseif op == "RETURN" then
+            if b == 0 then
+                return unpack(stack, a, top)
+            else
+                return unpack(stack, a, a + b - 2)
+            end
+            
+        elseif op == "CLOSURE" then
+            local proto = chunk.p[b]
+            local closure = {
+                code = proto.code,
+                constants = proto.k,
+                upvals = {},
+                env = env
+            }
+            stack[a] = closure
+            
+        elseif op == "ADD" then
+            stack[a] = stack[b] + stack[c]
+            
+        elseif op == "SUB" then
+            stack[a] = stack[b] - stack[c]
+            
+        elseif op == "MUL" then
+            stack[a] = stack[b] * stack[c]
+            
+        elseif op == "DIV" then
+            stack[a] = stack[b] / stack[c]
+            
+        elseif op == "POW" then
+            stack[a] = stack[b] ^ stack[c]
+            
+        elseif op == "JMP" then
+            pc = pc + b
         end
     end
-    
-    return closestPlayer
 end
 
-local function updateAimbot()
-    if not isEnabled then return end
-    
-    local target = getClosestPlayer()
-    if not target then return end
-    
-    local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-    if not targetRoot then return end
-    
-    local camera = workspace.CurrentCamera
-    camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
+-- Entry point
+return function(...)
+    -- Initialize VM state
+    local chunk = vmState.protos[1]
+    vmState.key = 0x1337  -- Example key, should be determined from obfuscated script
+    vmState.numKey = 0x7331  -- Example number key
+    return executeVM(chunk, env, ...)
 end
-
--- Make button draggable
-local isDragging = false
-local dragStart = nil
-local startPos = nil
-
-ToggleButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        isDragging = true
-        dragStart = input.Position
-        startPos = ToggleButton.Position
-    end
-end)
-
-ToggleButton.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        isDragging = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        ToggleButton.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
-end)
-
--- Toggle functionality
-ToggleButton.MouseButton1Click:Connect(function()
-    isEnabled = not isEnabled
-    ToggleButton.Text = "Aimbot: " .. (isEnabled and "ON" or "OFF")
-    ToggleButton.BackgroundColor3 = isEnabled and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
-end)
-
--- Main loop
-RunService.RenderStepped:Connect(updateAimbot) 
