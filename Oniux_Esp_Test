@@ -1,201 +1,89 @@
-local ESP = {
-    Enabled = true,
-    ItemESP = true,
-    EnemyESP = true,
-    ItemColor = Color3.fromRGB(0, 255, 0), -- Green for items
-    EnemyColor = Color3.fromRGB(255, 0, 0), -- Red for enemies
-    PassiveColor = Color3.fromRGB(0, 255, 255), -- Cyan for passive creatures
-    TextSize = 18, -- Increased text size for mobile
-    MaxDistance = 1000, meters for performance
-    UpdateRate = 0.1, -- Update ESP every 0.1 seconds instead of every frame
-    ESPObjects = {}, -- Store ESP objects for cleanup
-    
-    -- Define valid items and enemies
-    ValidItems = {
-        -- Weapons
-        ["Revolver"] = true,
-        ["Double Barrel Shotgun"] = true,
-        ["Rifle"] = true,
-        ["Repeater"] = true,
-        ["Crossbow"] = true,
-        ["Dynamite"] = true,
-        ["Molotov"] = true,
-        
-        -- Healing Items
-        ["Bandage"] = true,
-        ["Dr Rico's Cure"] = true, -- Snake Oil
-        ["Medkit"] = true,
-        
-        -- Gold Items
-        ["Gold Bar"] = true,
-        ["Gold Statue"] = true,
-        ["Gold Painting"] = true,
-        ["Gold Cup"] = true,
-        ["Gold Plate"] = true,
-        ["Gold Watch"] = true,
-        
-        -- Silver Items
-        ["Silver Bar"] = true,
-        ["Silver Statue"] = true,
-        ["Silver Painting"] = true,
-        ["Silver Cup"] = true,
-        ["Silver Plate"] = true,
-        ["Silver Watch"] = true,
-        
-        -- Other Valuables
-        ["Stone Statue"] = true,
-        ["Wood Painting"] = true,
-        ["Camera"] = true,
-        ["Jewelry"] = true,
-        
-        -- Resources & Materials
-        ["Coal"] = true,
-        ["Fire Torch"] = true,
-        ["Barbed Wire"] = true,
-        ["Corpse"] = true, -- Fuel
-        ["Ammo"] = true,
-        ["Rope"] = true,
-        ["Metal Scrap"] = true,
-        ["Cloth"] = true,
-        
-        -- Common Items
-        ["Box"] = true,
-        ["Chair"] = true,
-        ["Pot"] = true,
-        ["Tea"] = true,
-        ["Wheel"] = true,
-        ["Crate"] = true,
-        ["Table"] = true,
-        ["Lantern"] = true,
-        
-        -- Special Items
-        ["Key"] = true,
-        ["Map"] = true,
-        ["Compass"] = true,
-        ["Tool"] = true,
-        
-        -- Corpses
-        ["Bandit Corpse"] = true,
-        ["Werewolf Corpse"] = true,
-        ["Vampire Corpse"] = true,
-        ["Regular Corpse"] = true,
-        
-        -- Containers
-        ["Chest"] = true,
-        ["Safe"] = true,
-        ["Cabinet"] = true,
-        ["Drawer"] = true
-    },
-    
-    ValidEnemies = {
-        -- Zombies
-        ["Zombie"] = true,
-        ["Runner Zombie"] = true, -- Fast Zombie
-        ["Banker Zombie"] = true,
-        ["Zombie Soldier"] = true, -- Armed Zombie
-        ["Lab Zombie"] = true, -- Scientist Zombie
-        
-        -- Outlaws
-        ["Outlaw"] = true,
-        ["Horseback Outlaw"] = true,
-        
-        -- Supernatural
-        ["Vampire"] = true,
-        ["Wolf"] = true,
-        ["Werewolf"] = true
-    },
-    
-    ValidPassiveCreatures = {
-        ["Horse"] = true,
-        ["Unicorn"] = true
-    }
-}
-
 -- Services
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-
--- Variables
 local LocalPlayer = Players.LocalPlayer
+LocalPlayer.CameraMode = Enum.CameraMode.Classic
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
 local Camera = workspace.CurrentCamera
-local LastUpdate = 0
 
--- Create Mobile GUI
-local function CreateMobileGui()
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "OniuxMobileGUI"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = CoreGui
-    
-    -- Main control frame
-    local ControlFrame = Instance.new("Frame")
-    ControlFrame.Name = "ControlFrame"
-    ControlFrame.Size = UDim2.new(0, 150, 0, 130)
-    ControlFrame.Position = UDim2.new(0, 10, 0.5, -65)
-    ControlFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    ControlFrame.BackgroundTransparency = 0.3
-    ControlFrame.BorderSizePixel = 0
-    ControlFrame.Parent = ScreenGui
-    
-    -- Round corners
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 10)
-    UICorner.Parent = ControlFrame
-    
-    -- Title
-    local Title = Instance.new("TextLabel")
-    Title.Name = "Title"
-    Title.Size = UDim2.new(1, 0, 0, 30)
-    Title.Position = UDim2.new(0, 0, 0, 0)
-    Title.BackgroundTransparency = 1
-    Title.Text = "Oniux ESP"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 16
-    Title.Font = Enum.Font.GothamBold
-    Title.Parent = ControlFrame
-    
-    -- Toggle All Button
-    local ToggleAllBtn = Instance.new("TextButton")
-    ToggleAllBtn.Name = "ToggleAllBtn"
-    ToggleAllBtn.Size = UDim2.new(0.9, 0, 0, 30)
-    ToggleAllBtn.Position = UDim2.new(0.05, 0, 0.1, 0)
-    ToggleAllBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 40)
-    ToggleAllBtn.Text = "ESP: ON"
-    ToggleAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ToggleAllBtn.TextSize = 16
-    ToggleAllBtn.Font = Enum.Font.GothamBold
-    ToggleAllBtn.Parent = ControlFrame
-    
-    local BtnCorner = Instance.new("UICorner")
-    BtnCorner.CornerRadius = UDim.new(0, 5)
-    BtnCorner.Parent = ToggleAllBtn
-    
-    -- Make draggable
+-- Show initial notification
+StarterGui:SetCore("SendNotification", {
+    Title = "Code by GioBolqvi",
+    Text = "And modified by my credits to him",
+    Duration = 3
+})
+
+-- Create GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NPC_Lock_GUI"
+ScreenGui.Parent = game:GetService("CoreGui")
+
+-- Create main toggle button
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "NPC Lock: ON/OFF"
+ToggleButton.Size = UDim2.new(0, 150, 0, 50)
+ToggleButton.Position = UDim2.new(0.5, -75, 0.9, -25)
+ToggleButton.BackgroundColor3 = Color3.new(1, 0, 0)
+ToggleButton.TextColor3 = Color3.new(1, 1, 1)
+ToggleButton.Text = "NPC Lock: OFF"
+ToggleButton.Font = Enum.Font.Fantasy
+ToggleButton.TextScaled = true
+ToggleButton.TextSize = 20
+ToggleButton.Parent = ScreenGui
+
+-- Create settings button
+local SettingsButton = Instance.new("TextButton")
+SettingsButton.Name = "Settings"
+SettingsButton.Size = UDim2.new(0, 50, 0, 50)
+SettingsButton.Position = UDim2.new(0.95, -50, 0.05, 0)
+SettingsButton.BackgroundColor3 = Color3.new(0, 0, 0)
+SettingsButton.TextColor3 = Color3.new(1, 1, 1)
+SettingsButton.Text = "⚙️"
+SettingsButton.Font = Enum.Font.Fantasy
+SettingsButton.TextScaled = true
+SettingsButton.TextSize = 20
+SettingsButton.Parent = ScreenGui
+
+-- Add rounded corners
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 12)
+ToggleCorner.Parent = ToggleButton
+
+local SettingsCorner = Instance.new("UICorner")
+SettingsCorner.CornerRadius = UDim.new(0, 12)
+SettingsCorner.Parent = SettingsButton
+
+-- Make buttons draggable
+local function MakeDraggable(button)
     local isDragging = false
-    local dragStart = nil
-    local startPos = nil
-    
-    ControlFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+    local dragInput
+    local dragStart
+    local startPos
+
+    button.InputBegan:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
             isDragging = true
             dragStart = input.Position
-            startPos = ControlFrame.Position
+            startPos = button.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    isDragging = false
+                end
+            end)
         end
     end)
-    
-    ControlFrame.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDragging = false
+
+    button.InputChanged:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            dragInput = input
         end
     end)
-    
-    ControlFrame.InputChanged:Connect(function(input)
-        if isDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if isDragging and input == dragInput then
             local delta = input.Position - dragStart
-            ControlFrame.Position = UDim2.new(
+            button.Position = UDim2.new(
                 startPos.X.Scale,
                 startPos.X.Offset + delta.X,
                 startPos.Y.Scale,
@@ -203,335 +91,254 @@ local function CreateMobileGui()
             )
         end
     end)
-    
-    -- Toggle button handler
-    ToggleAllBtn.MouseButton1Click:Connect(function()
-        ESP.Enabled = not ESP.Enabled
-        ToggleAllBtn.Text = "ESP: " .. (ESP.Enabled and "ON" or "OFF")
-        ToggleAllBtn.BackgroundColor3 = ESP.Enabled and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(40, 40, 40)
-        
-        -- Clean up highlights if disabled
-        if not ESP.Enabled then
-            for _, v in pairs(ESP.ESPObjects) do
-                if v.highlight then
-                    v.highlight:Destroy()
-                end
-            end
-            ESP.ESPObjects = {}
-        end
-    end)
-    
-    return ScreenGui
 end
 
--- Function to create ESP text
-local function CreateESPText()
-    local Text = Drawing.new("Text")
-    Text.Visible = false
-    Text.Center = true
-    Text.Outline = true
-    Text.Font = 2
-    Text.Size = ESP.TextSize
-    return Text
+MakeDraggable(SettingsButton)
+MakeDraggable(ToggleButton)
+
+-- NPC Types to track
+local NPCTypes = {
+    "Walker",
+    "Runner",
+    "Banker",
+    "Outlaw",
+    "Vampire",
+    "Wolf",
+    "Werewolf",
+    "Horse",
+    "Unicorn"
+}
+
+-- Create enabled NPCs table
+local EnabledNPCs = {}
+for _, npcType in ipairs(NPCTypes) do
+    EnabledNPCs[npcType] = true
 end
 
--- Function to check if an object is valid for ESP
-local function IsValidObject(obj)
-    return obj and obj.Parent and obj:IsDescendantOf(workspace)
+-- Function to get NPC type from name
+local function GetNPCType(name)
+    for npcType, _ in pairs(EnabledNPCs) do
+        if name:find(npcType) then
+            return npcType
+        end
+    end
+    return nil
 end
 
--- Function to cleanup ESP objects
-local function CleanupESP(obj)
-    if ESP.ESPObjects[obj] then
-        local espData = ESP.ESPObjects[obj]
-        if espData.text then
-            espData.text:Remove()
-        end
-        if espData.billboard and espData.billboard.Parent then
-            espData.billboard:Destroy()
-        end
-        ESP.ESPObjects[obj] = nil
+-- ESP Functions
+local function AddPlayerESP()
+    if LocalPlayer.Character and not LocalPlayer.Character:FindFirstChild("PlayerHighlightESP") then
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "PlayerHighlightESP"
+        highlight.FillColor = Color3.new(1, 1, 1)
+        highlight.OutlineColor = Color3.new(1, 1, 1)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.Parent = LocalPlayer.Character
     end
 end
 
--- Function to normalize item name
-local function NormalizeItemName(name)
-    name = name:gsub("_", " ")
-           :gsub("%d+", "")
-           :gsub("^%s*(.-)%s*$", "%1")
-           :gsub(" %(Snake Oil%)", "")
-    return name
-end
-
--- Function to check if an object is an item
-local function IsItem(obj)
-    -- Check if object is valid
-    if not IsValidObject(obj) then return false end
-    
-    -- Check for common item properties in Dead Rails
-    if obj:IsA("Model") or obj:IsA("BasePart") then
-        -- Skip if item is equipped
-        if obj:FindFirstChild("Equipped") or 
-           (obj.Parent and obj.Parent:FindFirstChild("Equipped")) then
-            return false
-        end
-        
-        -- Check if the item name is in our valid items list
-        local normalizedName = NormalizeItemName(obj.Name)
-        if ESP.ValidItems[normalizedName] then
-            return true
-        end
-        
-        -- Check children for valid items (some items might be nested)
-        for _, child in pairs(obj:GetChildren()) do
-            if child:IsA("StringValue") and child.Name == "Type" then
-                local itemType = NormalizeItemName(child.Value)
-                if ESP.ValidItems[itemType] then
-                    return true
-                end
-            end
-        end
+local function RemovePlayerESP()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("PlayerHighlightESP") then
+        LocalPlayer.Character.PlayerHighlightESP:Destroy()
     end
-    return false
 end
 
--- Function to check if an object is an enemy and get its name
-local function IsEnemy(obj)
-    if not IsValidObject(obj) then return false, "" end
-    
-    if obj:IsA("Model") then
-        local humanoid = obj:FindFirstChild("Humanoid")
-        if humanoid and humanoid.Health > 0 then
-            -- Check if it's not a player
-            for _, player in pairs(Players:GetPlayers()) do
-                if player.Character == obj then
-                    return false, ""
-                end
-            end
+-- NPC Tracking
+local TrackedNPCs = {}
+
+local function UpdateNPCList()
+    local newList = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") then
+            local humanoid = obj:FindFirstChild("Humanoid") or obj:FindFirstChildWhichIsA("Humanoid")
+            local root = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
             
-            -- Get enemy name
-            local enemyName = obj.Name
-            -- Check for custom name label
-            local nameLabel = obj:FindFirstChild("NameLabel") or obj:FindFirstChild("Name") or obj:FindFirstChild("DisplayName")
-            if nameLabel and nameLabel:IsA("StringValue") then
-                enemyName = nameLabel.Value
-            end
-            
-            -- Check for NPC type
-            local npcType = obj:FindFirstChild("NPCType") or obj:FindFirstChild("Type")
-            if npcType and npcType:IsA("StringValue") then
-                enemyName = npcType.Value
-            end
-            
-            -- Normalize and check if it's a valid enemy
-            enemyName = NormalizeItemName(enemyName)
-            if ESP.ValidEnemies[enemyName] then
-                return true, enemyName
-            end
-        end
-    end
-    return false, ""
-end
-
--- Function to check if object is a valid item or enemy
-local function IsValidTarget(obj)
-    if not IsValidObject(obj) then return false, nil, 0 end -- 0 = invalid, 1 = item, 2 = enemy, 3 = passive
-    
-    -- Check if it's an item
-    local normalizedName = NormalizeItemName(obj.Name)
-    if ESP.ValidItems[normalizedName] and not (obj:FindFirstChild("Equipped") or (obj.Parent and obj.Parent:FindFirstChild("Equipped"))) then
-        return true, normalizedName, 1
-    end
-    
-    -- Check if it's an enemy
-    if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("Humanoid").Health > 0 then
-        -- Check if it's not a player
-        for _, player in pairs(Players:GetPlayers()) do
-            if player.Character == obj then return false, nil, 0 end
-        end
-        
-        -- Get creature name
-        local creatureName = obj.Name
-        local npcType = obj:FindFirstChild("NPCType") or obj:FindFirstChild("Type")
-        if npcType and npcType:IsA("StringValue") then
-            creatureName = npcType.Value
-        end
-        creatureName = NormalizeItemName(creatureName)
-        
-        -- Check if it's an enemy
-        if ESP.ValidEnemies[creatureName] then
-            return true, creatureName, 2
-        end
-        
-        -- Check if it's a passive creature
-        if ESP.ValidPassiveCreatures[creatureName] then
-            return true, creatureName, 3
-        end
-    end
-    
-    return false, nil, 0
-end
-
--- Function to create label
-local function CreateLabel(parent, name)
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESPLabel"
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 2, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = parent
-
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Name = "NameLabel"
-    nameLabel.Size = UDim2.new(1, 0, 0, 20)
-    nameLabel.Position = UDim2.new(0, 0, 0, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = name
-    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    nameLabel.TextStrokeTransparency = 0
-    nameLabel.TextSize = ESP.TextSize
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.Parent = billboard
-
-    local distanceLabel = Instance.new("TextLabel")
-    distanceLabel.Name = "DistanceLabel"
-    distanceLabel.Size = UDim2.new(1, 0, 0, 20)
-    distanceLabel.Position = UDim2.new(0, 0, 0, 20)
-    distanceLabel.BackgroundTransparency = 1
-    distanceLabel.Text = ""
-    distanceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    distanceLabel.TextStrokeTransparency = 0
-    distanceLabel.TextSize = ESP.TextSize - 2
-    distanceLabel.Font = Enum.Font.GothamBold
-    distanceLabel.Parent = billboard
-
-    return billboard, nameLabel, distanceLabel
-end
-
--- Optimized ESP Update Function
-local function UpdateESP()
-    local currentTime = tick()
-    if currentTime - LastUpdate < ESP.UpdateRate then return end
-    LastUpdate = currentTime
-    
-    local cameraPos = Camera.CFrame.Position
-    
-    -- Clean up invalid objects and those too far away
-    for obj, data in pairs(ESP.ESPObjects) do
-        if not IsValidObject(obj) then
-            if data.highlight then
-                data.highlight:Destroy()
-            end
-            if data.billboard then
-                data.billboard:Destroy()
-            end
-            ESP.ESPObjects[obj] = nil
-        else
-            -- Check distance and update visibility
-            local objectPos = obj:IsA("Model") and 
-                (obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart or obj:FindFirstChild("Handle")) or 
-                (obj:IsA("BasePart") and obj)
-            
-            if objectPos then
-                local distance = (cameraPos - objectPos.Position).Magnitude
-                local isVisible = distance <= ESP.MaxDistance
-                
-                -- Update visibility
-                if data.highlight then
-                    data.highlight.Enabled = isVisible
-                end
-                if data.billboard then
-                    data.billboard.Enabled = isVisible
+            if humanoid and root and humanoid.Health > 0 then
+                local isPlayer = false
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player.Character == obj then
+                        isPlayer = true
+                        break
+                    end
                 end
                 
-                -- Update distance label if visible
-                if isVisible and data.distanceLabel then
-                    data.distanceLabel.Text = string.format("[%d m]", math.floor(distance))
-                end
-            end
-        end
-    end
-    
-    -- Only check for new objects within range
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if not ESP.ESPObjects[obj] then
-            local objectPos = obj:IsA("Model") and 
-                (obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart or obj:FindFirstChild("Handle")) or 
-                (obj:IsA("BasePart") and obj)
-            
-            if objectPos then
-                local distance = (cameraPos - objectPos.Position).Magnitude
-                
-                -- Only create ESP for objects within range
-                if distance <= ESP.MaxDistance then
-                    local isValid, name, objType = IsValidTarget(obj)
-                    
-                    if isValid then
-                        -- Create highlight
-                        local highlight = Instance.new("Highlight")
-                        
-                        -- Set color based on object type
-                        if objType == 1 then -- Item
-                            highlight.FillColor = ESP.ItemColor
-                            highlight.OutlineColor = ESP.ItemColor
-                        elseif objType == 2 then -- Enemy
-                            highlight.FillColor = ESP.EnemyColor
-                            highlight.OutlineColor = ESP.EnemyColor
-                        else -- Passive creature
-                            highlight.FillColor = ESP.PassiveColor
-                            highlight.OutlineColor = ESP.PassiveColor
-                        end
-                        
-                        highlight.FillTransparency = 0.5
-                        highlight.OutlineTransparency = 0
-                        highlight.Parent = obj
-                        
-                        -- Create labels
-                        local billboard, nameLabel, distanceLabel = CreateLabel(obj, name)
-                        distanceLabel.Text = string.format("[%d m]", math.floor(distance))
-                        
-                        ESP.ESPObjects[obj] = {
-                            highlight = highlight,
-                            billboard = billboard,
-                            nameLabel = nameLabel,
-                            distanceLabel = distanceLabel
-                        }
+                if not isPlayer then
+                    local npcType = GetNPCType(obj.Name)
+                    if npcType and EnabledNPCs[npcType] then
+                        table.insert(newList, obj)
                     end
                 end
             end
         end
     end
+    TrackedNPCs = newList
 end
 
--- Initialize ESP
-local function InitESP()
-    local mobileGui = CreateMobileGui()
-    
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Oniux ESP",
-        Text = "Optimized ESP Loaded!\nRange: 30m",
-        Duration = 3
-    })
-    
-    RunService.Heartbeat:Connect(function()
-        if ESP.Enabled then
-            UpdateESP()
-        end
-    end)
-end
-
--- Cleanup on script stop
-game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function()
-    for _, data in pairs(ESP.ESPObjects) do
-        if data.highlight then
-            data.highlight:Destroy()
-        end
-        if data.billboard then
-            data.billboard:Destroy()
-        end
+-- Update NPC list every 0.1 seconds
+spawn(function()
+    while true do
+        UpdateNPCList()
+        wait(0.1)
     end
-    ESP.ESPObjects = {}
 end)
 
--- Start ESP
-InitESP() 
+-- Find closest NPC
+local function GetClosestNPC()
+    if not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) then
+        return nil
+    end
+    
+    local closest = nil
+    local minDistance = math.huge
+    local playerPos = LocalPlayer.Character.HumanoidRootPart.Position
+    
+    for _, npc in ipairs(TrackedNPCs) do
+        local root = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+        if root then
+            local distance = (root.Position - playerPos).Magnitude
+            if distance < minDistance then
+                minDistance = distance
+                closest = npc
+            end
+        end
+    end
+    
+    return closest
+end
+
+-- Settings GUI
+local function UpdateButtonColor(button, enabled)
+    if enabled then
+        button.BackgroundColor3 = Color3.new(0, 1, 0)
+    else
+        button.BackgroundColor3 = Color3.new(1, 0, 0)
+    end
+end
+
+local settingsOpen = false
+
+local function ToggleSettings()
+    settingsOpen = not settingsOpen
+    
+    if settingsOpen then
+        local SettingsFrame = Instance.new("Frame")
+        SettingsFrame.Name = "SettingsFrame"
+        SettingsFrame.Size = UDim2.new(0, 270, 0, 300)
+        SettingsFrame.Position = UDim2.new(0.5, -135, 0.5, -150)
+        SettingsFrame.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+        SettingsFrame.Parent = ScreenGui
+        
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 12)
+        Corner.Parent = SettingsFrame
+        
+        local Title = Instance.new("TextLabel")
+        Title.Size = UDim2.new(1, 0, 0, 40)
+        Title.Position = UDim2.new(0, 0, 0, 0)
+        Title.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+        Title.TextColor3 = Color3.new(1, 1, 1)
+        Title.Text = "NPC Settings"
+        Title.Font = Enum.Font.Fantasy
+        Title.TextScaled = true
+        Title.Parent = SettingsFrame
+        
+        local ScrollFrame = Instance.new("ScrollingFrame")
+        ScrollFrame.Size = UDim2.new(1, 0, 1, -40)
+        ScrollFrame.Position = UDim2.new(0, 0, 0, 40)
+        ScrollFrame.BackgroundTransparency = 1
+        ScrollFrame.Parent = SettingsFrame
+        
+        local Grid = Instance.new("UIGridLayout")
+        Grid.CellSize = UDim2.new(0.48, 0, 0, 40)
+        Grid.CellPadding = UDim2.new(0, 5, 0, 5)
+        Grid.Parent = ScrollFrame
+        
+        -- Create toggle buttons for each NPC type
+        for _, npcType in ipairs(NPCTypes) do
+            local ToggleButton = Instance.new("TextButton")
+            ToggleButton.Size = UDim2.new(0, 120, 0, 40)
+            ToggleButton.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+            ToggleButton.TextColor3 = Color3.new(1, 1, 1)
+            ToggleButton.Text = npcType .. ": " .. (EnabledNPCs[npcType] and "ON" or "OFF")
+            ToggleButton.Font = Enum.Font.Fantasy
+            ToggleButton.TextScaled = true
+            ToggleButton.Parent = ScrollFrame
+            
+            local ButtonCorner = Instance.new("UICorner")
+            ButtonCorner.CornerRadius = UDim.new(0, 8)
+            ButtonCorner.Parent = ToggleButton
+            
+            UpdateButtonColor(ToggleButton, EnabledNPCs[npcType])
+            
+            ToggleButton.MouseButton1Click:Connect(function()
+                EnabledNPCs[npcType] = not EnabledNPCs[npcType]
+                ToggleButton.Text = npcType .. ": " .. (EnabledNPCs[npcType] and "ON" or "OFF")
+                UpdateButtonColor(ToggleButton, EnabledNPCs[npcType])
+            end)
+        end
+        
+        task.wait(0.1)
+        ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, Grid.AbsoluteContentSize.Y)
+    else
+        local frame = ScreenGui:FindFirstChild("SettingsFrame")
+        if frame then
+            frame:Destroy()
+        end
+    end
+end
+
+SettingsButton.MouseButton1Click:Connect(ToggleSettings)
+
+-- Main NPC Lock functionality
+local isLocked = false
+local updateConnection
+
+ToggleButton.MouseButton1Click:Connect(function()
+    isLocked = not isLocked
+    
+    if isLocked then
+        ToggleButton.Text = "NPC Lock: ON"
+        
+        updateConnection = RunService.RenderStepped:Connect(function()
+            local target = GetClosestNPC()
+            
+            if target and target:FindFirstChild("Humanoid") then
+                local humanoid = target:FindFirstChild("Humanoid")
+                
+                if humanoid.Health > 0 then
+                    Camera.CameraSubject = humanoid
+                    AddPlayerESP()
+                else
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Killed NPC",
+                        Text = target.Name,
+                        Duration = 0.4
+                    })
+                    RemovePlayerESP()
+                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                        Camera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
+                    end
+                end
+            else
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                    Camera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
+                end
+                RemovePlayerESP()
+            end
+        end)
+    else
+        ToggleButton.Text = "NPC Lock: OFF"
+        
+        if updateConnection then
+            updateConnection:Disconnect()
+            updateConnection = nil
+        end
+        
+        RemovePlayerESP()
+        
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            Camera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
+        end
+    end
+end) 
