@@ -1,173 +1,248 @@
---[[
-Original script protected with MoonSec V3
-Deobfuscated version with restored structure
-]]
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 
--- Initialize environment
-local env = getfenv and getfenv() or _ENV
-local string = string
-local table = table
-local math = math
-local bit = bit or bit32 or require("bit")
+-- Constants
+local ESP_DISTANCE = 30 -- Reduced distance for better performance
+local UPDATE_INTERVAL = 0.1
+local HIGHLIGHT_TRANSPARENCY = 0.5
 
--- VM state
-local vmState = {
-    constants = {},
-    functions = {},
-    upvalues = {},
-    protos = {},
-    stack = {},
-    pc = 1,
-    env = env
+-- Valid Items List
+local ValidItems = {
+    -- Weapons
+    ["Dynamite"] = true,
+    
+    -- Resources & Materials
+    ["Coal"] = true,
+    ["Fire Torch"] = true,
+    ["Barbed Wire"] = true,
+    ["Corpse"] = true, -- Fuel
+    ["Camera"] = true,
+    ["Ammo"] = true,
+    
+    -- Healing Items
+    ["Bandage"] = true,
+    ["Dr Rico's Cure"] = true, -- Snake Oil
+    
+    -- Gold Items
+    ["Gold Bar"] = true,
+    ["Gold Statue"] = true,
+    ["Gold Painting"] = true,
+    ["Gold Cup"] = true,
+    ["Gold Plate"] = true,
+    ["Gold Watch"] = true,
+    
+    -- Silver Items
+    ["Silver Ingot"] = true,
+    ["Silver Statue"] = true,
+    ["Silver Painting"] = true,
+    ["Silver Cup"] = true,
+    ["Silver Plate"] = true,
+    ["Silver Watch"] = true,
+    
+    -- Other Valuables
+    ["Stone Statue"] = true,
+    ["Wood Painting"] = true,
+    
+    -- Corpses
+    ["Bandit Corpse"] = true,
+    ["Werewolf Corpse"] = true,
+    ["Vampire Corpse"] = true,
+    
+    -- Common Items
+    ["Barrel"] = true,
+    ["Box"] = true,
+    ["Chair"] = true,
+    ["Pot"] = true,
+    ["Tea"] = true,
+    ["Rope"] = true,
+    ["Wheel"] = true
 }
 
--- Helper functions
-local function decodeString(str)
-    if type(str) ~= "string" then return str end
-    local result = ""
-    local i = 1
-    while i <= #str do
-        local byte = string.byte(str, i)
-        -- XOR decryption with dynamic key
-        result = result .. string.char(bit.bxor(byte, vmState.key or 0))
-        i = i + 1
-    end
-    return result
-end
-
-local function decodeNumber(n)
-    if type(n) ~= "number" then return n end
-    -- Reverse number encoding
-    return bit.bxor(n, vmState.numKey or 0)
-end
-
-local function getConstant(chunk, idx)
-    local constant = chunk.k[idx]
-    if type(constant) == "string" then
-        return decodeString(constant)
-    elseif type(constant) == "number" then
-        return decodeNumber(constant)
-    end
-    return constant
-end
-
--- Main VM implementation
-local function executeVM(chunk, env, ...)
-    local stack = {}
-    local top = -1
-    local pc = 1
-    local vararg = {...}
+-- Valid Enemies List
+local ValidEnemies = {
+    -- Zombies
+    ["Zombie"] = true,
+    ["Runner Zombie"] = true,
+    ["Banker Zombie"] = true,
+    ["Zombie Soldier"] = true,
+    ["Lab Zombie"] = true,
     
-    -- Initialize registers
-    for i = 1, chunk.maxstack do
-        stack[i] = nil
+    -- Outlaws
+    ["Outlaw"] = true,
+    ["Horseback Outlaw"] = true,
+    
+    -- Supernatural
+    ["Vampire"] = true,
+    ["Wolf"] = true,
+    ["Werewolf"] = true
+}
+
+-- Valid Passive Creatures
+local ValidPassive = {
+    ["Horse"] = true,
+    ["Unicorn"] = true
+}
+
+-- Create Mobile GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ESP_Mobile_GUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+-- Create Control Frame
+local ControlFrame = Instance.new("Frame")
+ControlFrame.Name = "ControlFrame"
+ControlFrame.Size = UDim2.new(0, 180, 0, 60)
+ControlFrame.Position = UDim2.new(0.5, -90, 0.9, -30)
+ControlFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+ControlFrame.BackgroundTransparency = 0.5
+ControlFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = ControlFrame
+
+-- Create Buttons
+local function CreateButton(name, position)
+    local button = Instance.new("TextButton")
+    button.Name = name
+    button.Size = UDim2.new(0.3, 0, 0.8, 0)
+    button.Position = position
+    button.BackgroundColor3 = Color3.new(1, 0, 0)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Text = name
+    button.TextScaled = true
+    button.Parent = ControlFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = button
+    
+    return button
+end
+
+local ESPButton = CreateButton("ESP", UDim2.new(0.05, 0, 0.1, 0))
+local ItemsButton = CreateButton("Items", UDim2.new(0.35, 0, 0.1, 0))
+local EnemiesButton = CreateButton("Enemies", UDim2.new(0.65, 0, 0.1, 0))
+
+-- Variables
+local ESPEnabled = false
+local ShowItems = false
+local ShowEnemies = false
+local ESPObjects = {}
+
+-- Make Control Frame Draggable
+local isDragging = false
+local dragStart = nil
+local startPos = nil
+
+ControlFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = true
+        dragStart = input.Position
+        startPos = ControlFrame.Position
+    end
+end)
+
+ControlFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if isDragging and input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStart
+        ControlFrame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- ESP Functions
+local function UpdateESP()
+    if not ESPEnabled then return end
+    
+    -- Clean up old ESP
+    for object, esp in pairs(ESPObjects) do
+        if not object or not object:IsDescendantOf(game) then
+            esp:Destroy()
+            ESPObjects[object] = nil
+        end
     end
     
-    while true do
-        local inst = chunk[pc]
-        pc = pc + 1
-        
-        -- Instruction decoding and execution
-        local op = inst.op
-        local a = inst.a
-        local b = inst.b
-        local c = inst.c
-        
-        if op == "GETGLOBAL" then
-            stack[a] = env[getConstant(chunk, b)]
+    -- Update ESP for items and enemies
+    for _, object in ipairs(workspace:GetDescendants()) do
+        if object:IsA("Model") then
+            local isItem = ValidItems[object.Name]
+            local isEnemy = ValidEnemies[object.Name]
+            local isPassive = ValidPassive[object.Name]
             
-        elseif op == "SETGLOBAL" then
-            env[getConstant(chunk, b)] = stack[a]
-            
-        elseif op == "LOADK" then
-            stack[a] = getConstant(chunk, b)
-            
-        elseif op == "LOADBOOL" then
-            stack[a] = b ~= 0
-            if c ~= 0 then pc = pc + 1 end
-            
-        elseif op == "LOADNIL" then
-            for i = a, b do
-                stack[i] = nil
-            end
-            
-        elseif op == "GETUPVAL" then
-            stack[a] = chunk.upvals[b]
-            
-        elseif op == "SETUPVAL" then
-            chunk.upvals[b] = stack[a]
-            
-        elseif op == "CALL" then
-            local func = stack[a]
-            local nparams = b - 1
-            local nresults = c - 1
-            
-            local args = {}
-            if nparams > 0 then
-                for i = 1, nparams do
-                    args[i] = stack[a + i]
-                end
-            elseif nparams == 0 then
-                local vlen = top - a
-                if vlen >= 0 then
-                    for i = 1, vlen do
-                        args[i] = stack[a + i]
+            if (isItem and ShowItems) or ((isEnemy or isPassive) and ShowEnemies) then
+                local humanoid = object:FindFirstChild("Humanoid") or object:FindFirstChildWhichIsA("Humanoid")
+                local root = object:FindFirstChild("HumanoidRootPart") or object.PrimaryPart
+                
+                if root then
+                    local distance = (root.Position - Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                    
+                    if distance <= ESP_DISTANCE then
+                        if not ESPObjects[object] then
+                            local esp = Instance.new("Highlight")
+                            esp.FillColor = isItem and Color3.new(0, 1, 0) or (isEnemy and Color3.new(1, 0, 0) or Color3.new(0, 1, 1))
+                            esp.OutlineColor = esp.FillColor
+                            esp.FillTransparency = HIGHLIGHT_TRANSPARENCY
+                            esp.OutlineTransparency = 0
+                            esp.Parent = object
+                            ESPObjects[object] = esp
+                        end
+                    else
+                        if ESPObjects[object] then
+                            ESPObjects[object]:Destroy()
+                            ESPObjects[object] = nil
+                        end
                     end
                 end
             end
-            
-            local results = {func(unpack(args, 1, nparams))}
-            
-            if nresults ~= 0 then
-                for i = 1, nresults do
-                    stack[a + i - 1] = results[i]
-                end
-                top = a + nresults - 1
-            end
-            
-        elseif op == "RETURN" then
-            if b == 0 then
-                return unpack(stack, a, top)
-            else
-                return unpack(stack, a, a + b - 2)
-            end
-            
-        elseif op == "CLOSURE" then
-            local proto = chunk.p[b]
-            local closure = {
-                code = proto.code,
-                constants = proto.k,
-                upvals = {},
-                env = env
-            }
-            stack[a] = closure
-            
-        elseif op == "ADD" then
-            stack[a] = stack[b] + stack[c]
-            
-        elseif op == "SUB" then
-            stack[a] = stack[b] - stack[c]
-            
-        elseif op == "MUL" then
-            stack[a] = stack[b] * stack[c]
-            
-        elseif op == "DIV" then
-            stack[a] = stack[b] / stack[c]
-            
-        elseif op == "POW" then
-            stack[a] = stack[b] ^ stack[c]
-            
-        elseif op == "JMP" then
-            pc = pc + b
         end
     end
 end
 
--- Entry point
-return function(...)
-    -- Initialize VM state
-    local chunk = vmState.protos[1]
-    vmState.key = 0x1337  -- Example key, should be determined from obfuscated script
-    vmState.numKey = 0x7331  -- Example number key
-    return executeVM(chunk, env, ...)
+-- Button Functions
+local function UpdateButtonColor(button, enabled)
+    button.BackgroundColor3 = enabled and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
 end
+
+ESPButton.MouseButton1Click:Connect(function()
+    ESPEnabled = not ESPEnabled
+    UpdateButtonColor(ESPButton, ESPEnabled)
+    
+    if not ESPEnabled then
+        for _, esp in pairs(ESPObjects) do
+            esp:Destroy()
+        end
+        ESPObjects = {}
+    end
+end)
+
+ItemsButton.MouseButton1Click:Connect(function()
+    ShowItems = not ShowItems
+    UpdateButtonColor(ItemsButton, ShowItems)
+end)
+
+EnemiesButton.MouseButton1Click:Connect(function()
+    ShowEnemies = not ShowEnemies
+    UpdateButtonColor(EnemiesButton, ShowEnemies)
+end)
+
+-- Main Loop
+RunService.RenderStepped:Connect(function()
+    if ESPEnabled and (ShowItems or ShowEnemies) then
+        UpdateESP()
+    end
+end) 
