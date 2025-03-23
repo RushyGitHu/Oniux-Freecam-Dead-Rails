@@ -12,8 +12,21 @@ local ESP = {
     
     -- Define valid items and enemies
     ValidItems = {
-        -- Weapons & Tools
+        -- Weapons, Tools & Guns
         ["Dynamite"] = true,
+        ["Axe"] = true,
+        ["Hammer"] = true,
+        ["Pickaxe"] = true,
+        ["Shovel"] = true,
+        ["Revolver"] = true,
+        ["Navy Revolver"] = true,
+        ["Masuser C96"] = true,
+        ["Masuser"] = true,
+        ["Rifle"] = true,
+        ["Shotgun"] = true,
+        ["Sawed-Off Shotgun"] = true,
+        ["Maxim Machine Gun"] = true,
+        ["Vampire Knife"] = true,
         
         -- Resources & Materials
         ["Coal"] = true,
@@ -26,6 +39,7 @@ local ESP = {
         -- Healing Items
         ["Bandage"] = true,
         ["Dr Rico's Cure"] = true, -- Snake Oil
+        ["Snake Oil"] = true,
         
         -- Valuable Items - Gold
         ["Gold Ingot"] = true,
@@ -56,7 +70,6 @@ local ESP = {
         ["Vampire Corpse"] = true,
         
         -- Common Items
-        ["Barrel"] = true,
         ["Box"] = true,
         ["Chair"] = true,
         ["Pot"] = true,
